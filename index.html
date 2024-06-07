@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>HTML5 Canvas Winning Wheel</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <link rel="stylesheet" href="main.css" type="text/css" />
+    <link type="icon/x-icon" href="favicon.ico" rel="shortcut icon" />
+    <script type="text/javascript" src="Winwheel.min.js"></script>
+    <script src="TweenMax.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: url('hinhnen.png') no-repeat center center fixed; /* Updated background image */
+            background-size: cover;
+        }
+        .container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 10px;
+        }
+        #userForm {
+            margin-bottom: 20px;
+            background: rgba(255, 255, 255, 0.8); /* Semi-transparent background for the form */
+            padding: 20px;
+            border-radius: 10px;
+        }
+        .wheel-container {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        canvas {
+            max-width: 100%;
+            height: auto;
+        }
+        .pointer {
+            position: absolute;
+            top: 0;
+            left: 50%;
+            width: 35px; /* Adjust the width */
+            height: 50px; /* Adjust the height */
+            transform: translateX(-50%);
+            z-index: 1;
+        }
+        .logo {
+            width: 100px; /* Adjust the logo size */
+            margin-bottom: 20px;
+        }
+        .btn {
+            padding: 20px 20px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        .hide {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <img src="logo.png" alt="Logo" class="logo" /> <!-- Add your logo here -->
+        <form id="userForm" onsubmit="startSpin(event);">
+            <label for="name">Tên:</label><br>
+            <input type="text" id="name" name="name" required><br><br>
+            <label for="phone">Số điện thoại:</label><br>
+            <input type="tel" id="phone" name="phone" required><br><br>
+            <button type="submit" id="spin_start" class="btn">Quay ngay</button> <br><br>
+            <button type="button" id="spin_reset" class="btn hide" onClick="resetWheel();">Quay lại</button>
+        </form>
+        <div class="wheel-container">
+            <img src="pointer.png" alt="Pointer" class="pointer" />
+            <canvas id="canvas" width="434" height="434">
+                <p style="color: white" align="center">Sorry, your browser doesn't support canvas. Please try another.</p>
+            </canvas>
+        </div>
+    </div>
+    <script>
+        // Thông số vòng quay
+        let duration = 35; // Thời gian kết thúc vòng quay
+        let spins = 15; // Quay nhanh hay chậm 3, 8, 15
+        let theWheel = new Winwheel({
+            'numSegments': 8, // Chia 8 phần bằng nhau
+            'outerRadius': 212, // Đặt bán kính vòng quay
+            'textFontSize': 18, // Đặt kích thước chữ
+            'rotationAngle': 0, // Đặt góc vòng quay từ 0 đến 360 độ.
+            'segments': // Các thành phần bao gồm màu sắc và văn bản.
+            [
+                {'fillStyle': '#ffffff', 'text': 'Áo mưa (dù)'},
+                {'fillStyle': '#fb6700', 'text': 'Super shell (10kg)'},
+                {'fillStyle': '#ffffff', 'text': 'Aqua bzt 500g'},
+                {'fillStyle': '#fb6700', 'text': 'C Plus (500g)'},
+                {'fillStyle': '#ffffff', 'text': 'Áo mưa (dù)'},
+                {'fillStyle': '#fb6700', 'text': 'Super shell (10kg)'},
+                {'fillStyle': '#ffffff', 'text': 'Aqua bzt 500g'},
+                {'fillStyle': '#fb6700', 'text': 'C Plus (500g)'},
+            ],
+            'animation': {
+                'type': 'spinToStop',
+                'duration': duration,
+                'spins': spins,
+                'callbackSound': playSound, // Hàm gọi âm thanh khi quay
+                'soundTrigger': 'pin', // Chỉ định chân là để kích hoạt âm thanh
+                'callbackFinished': alertPrize, // Hàm hiển thị kết quả trúng giải thưởng
+            },
+            'pins': {
+                'number': 32 // Số lượng chân. Chia đều xung quanh vòng quay.
+            }
+        });
+
+        // Kiểm tra vòng quay
+        let wheelSpinning = false;
+
+        // Tạo âm thanh và tải tập tin tick.mp3.
+        let audio = new Audio('tick.mp3');
+        function playSound() {
+            audio.pause();
+            audio.currentTime = 0;
+            audio.play();
+        }
+
+        // Hiển thị các nút vòng quay
+        function statusButton(status) {
+            if (status == 1) { // Trước khi quay
+                document.getElementById('spin_start').removeAttribute("disabled");
+                document.getElementById('spin_reset').classList.add("hide");
+            } else if (status == 2) { // Đang quay
+                document.getElementById('spin_start').setAttribute("disabled", true);
+                document.getElementById('spin_reset').classList.add("hide");
+            } else if (status == 3) { // Kết quả
+                document.getElementById('spin_reset').classList.remove("hide");
+            } else {
+                alert('Các giá trị của status: 1, 2, 3');
+            }
+        }
+        statusButton(1);
+
+        // stopAngle
+        function stopAngle() {
+            // Xác suất để trúng các giải thưởng
+            let probability = Math.random();
+            let stopAt;
+
+            if (probability < 0.125) {
+                // Giải 1: 0 đến 45 độ
+                let start = 0;
+                let stop = Math.floor(Math.random() * 45);
+                stopAt = start + stop;
+            } else if (probability < 0.25) {
+                // Giải 2: 46 đến 90 độ
+                let start = 46;
+                let stop = Math.floor(Math.random() * 45);
+                stopAt = start + stop;
+            } else if (probability < 0.375) {
+                // Giải 3: 91 đến 135 độ
+                let start = 91;
+                let stop = Math.floor(Math.random() * 45);
+                stopAt = start + stop;
+            } else if (probability < 0.5) {
+                // Giải 4: 136 đến 180 độ
+                let start = 136;
+                let stop = Math.floor(Math.random() * 45);
+                stopAt = start + stop;
+            } else if (probability < 0.625) {
+                // Giải 5: 181 đến 225 độ
+                let start = 181;
+                let stop = Math.floor(Math.random() * 45);
+                stopAt = start + stop;
+            } else if (probability < 0.75) {
+                // Giải 6: 226 đến 270 độ
+                let start = 226;
+                let stop = Math.floor(Math.random() * 45);
+                stopAt = start + stop;
+            } else if (probability < 0.875) {
+                // Giải 7: 271 đến 315 độ
+                let start = 271;
+                let stop = Math.floor(Math.random() * 45);
+                stopAt = start + stop;
+            } else {
+                // Giải 8: 316 đến 360 độ
+                let start = 316;
+                let stop = Math.floor(Math.random() * 45);
+                stopAt = start + stop;
+            }
+
+            theWheel.animation.stopAngle = stopAt;
+        }
+
+        // startSpin
+        function startSpin(event) {
+            event.preventDefault(); // Prevent form submission
+
+            // Ensure that spinning can't be clicked again while already running.
+            if (wheelSpinning == false) {
+                // Get form values
+                const name = document.getElementById('name').value;
+                const phone = document.getElementById('phone').value;
+
+                if (name && phone) {
+                    // CSS hiển thị button
+                    statusButton(2);
+
+                    // Đặt kết quả mong muốn
+                    stopAngle();
+
+                    // Hàm bắt đầu quay
+                    theWheel.startAnimation();
+
+                    // Khóa vòng quay
+                    wheelSpinning = true;
+                } else {
+                    alert("Vui lòng điền tên và số điện thoại!");
+                }
+            }
+        }
+
+        // Result
+        function alertPrize(indicatedSegment) {
+            const name = document.getElementById('name').value;
+            alert("Chúc mừng " + name + ", bạn trúng: " + indicatedSegment.text);
+
+            // CSS hiển thị button
+            statusButton(3);
+        }
+
+        // resetWheel
+        function resetWheel() {
+            // CSS hiển thị button
+            statusButton(1);
+
+            theWheel.stopAnimation(false); // Stop the animation, false as param so does not call callback function.
+            theWheel.rotationAngle = 0; // Re-set the wheel angle to 0 degrees.
+            theWheel.draw(); // Call draw to render changes to the wheel.
+
+            wheelSpinning = false; // Reset to false to power buttons and spin can be clicked again.
+        }
+    </script>
+</body>
+</html>
